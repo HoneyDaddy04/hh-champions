@@ -1013,23 +1013,38 @@
             });
         });
         
-        // Handle form submission
-        document.getElementById('championForm').addEventListener('submit', function(e) {
+        // Handle form submission — send to server API
+        document.getElementById('championForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            
-            // Get form data
+            const submitBtn = this.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+
             const formData = new FormData(this);
             const data = Object.fromEntries(formData);
-            
-            // Here you would normally send the data to your server
-            console.log('Form submitted:', data);
-            
-            // Show success message
-            alert('Thank you for registering! We\'ll contact you soon with next steps.');
-            
-            // Close modal and reset form
-            closeModal();
-            this.reset();
+
+            try {
+                const res = await fetch('/api/signup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const json = await res.json();
+                if (json && json.success) {
+                    // show a friendly message inside the modal before closing
+                    alert('Thank you for registering! We\'ll contact you soon with next steps.');
+                    this.reset();
+                    closeModal();
+                } else {
+                    console.error('Signup failed', json);
+                    alert('There was an error submitting the form. Please try again later.');
+                }
+            } catch (err) {
+                console.error('Network error', err);
+                alert('Network error. Please check your connection and try again.');
+            } finally {
+                submitBtn.disabled = false;
+            }
         });
         
         // Add smooth scrolling

@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Admin — Helium Health Champions</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <style>
+    body{font-family:Inter,system-ui,Segoe UI,Roboto,sans-serif;margin:0;background:#f8fbff;color:#0b1220}
+    .container{max-width:1100px;margin:3rem auto;padding:1rem}
+    .card{background:#fff;padding:1rem;border-radius:10px;box-shadow:0 8px 30px rgba(16,24,40,0.06)}
+    .grid{display:grid;grid-template-columns:1fr 2fr;gap:1rem}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:0.5rem;border-bottom:1px solid #eef3fb;text-align:left}
+    .login{max-width:420px;margin:2rem auto}
+    .btn{background:linear-gradient(135deg,#3b82f6,#1e40af);color:#fff;padding:0.5rem 0.75rem;border-radius:8px;text-decoration:none;border:none}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Admin</h1>
+    <div id="loginBox" class="card login">
+      <h3>Sign in</h3>
+      <div>
+        <label>Username</label><br>
+        <input id="username" />
+      </div>
+      <div>
+        <label>Password</label><br>
+        <input id="password" type="password" />
+      </div>
+      <div style="margin-top:8px">
+        <button id="loginBtn" class="btn">Sign in</button>
+      </div>
+      <div id="loginMsg" style="margin-top:8px;color:red"></div>
+    </div>
+
+    <div id="adminArea" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+        <h2>Signups</h2>
+        <div>
+          <button id="logoutBtn" class="btn">Logout</button>
+        </div>
+      </div>
+      <div class="card">
+        <table>
+          <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Hospital</th><th>State</th><th>Role</th><th>When</th></tr></thead>
+          <tbody id="signupsTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // determine backend origin for dev. If this page is served from a different origin (eg Live Server at :5500),
+    // use the backend origin at localhost:8979. Adjust if your backend runs elsewhere.
+    const BACKEND_ORIGIN = (location.origin.includes(':5500') ? 'http://localhost:8979' : location.origin);
+
+    async function login() {
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      let res;
+      try {
+        res = await fetch(BACKEND_ORIGIN + '/api/admin/login', { method:'POST', credentials: 'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ username, password }) });
+      } catch (err) {
+        document.getElementById('loginMsg').textContent = 'Network error: could not reach API (is the server running?).';
+        console.error(err);
+        return;
+      }
+
+      if (!res.ok) {
+        // try to read a JSON error; otherwise show status
+        let txt = `Request failed: ${res.status} ${res.statusText}`;
+        try {
+          const errBody = await res.text();
+          if (errBody) txt += ` - ${errBody}`;
+        } catch (e) {}
+        document.getElementById('loginMsg').textContent = txt;
+        return;
+      }
+
+      // success path — parse JSON but guard against empty body
+      let j = null;
+      try {
+        j = await res.json();
+      } catch (err) {
+        console.warn('Non-JSON response from /api/admin/login', err);
+        document.getElementById('loginMsg').textContent = 'Unexpected response from server.';
+        return;
+      }
+
+      if (j && j.success) { showAdmin(); } else { document.getElementById('loginMsg').textContent = 'Invalid credentials'; }
+    }
+
+    async function showAdmin() {
+      document.getElementById('loginBox').style.display = 'none';
+      document.getElementById('adminArea').style.display = 'block';
+      let res;
+      try {
+        res = await fetch(BACKEND_ORIGIN + '/api/admin/signups', { credentials: 'include' });
+      } catch (err) {
+        document.getElementById('loginMsg').textContent = 'Network error: could not reach API (is the server running?).';
+        console.error(err);
+        document.getElementById('loginBox').style.display = 'block';
+        document.getElementById('adminArea').style.display = 'none';
+        return;
+      }
+
+      if (res.status === 401) {
+        document.getElementById('loginBox').style.display = 'block';
+        document.getElementById('adminArea').style.display = 'none';
+        return;
+      }
+
+      if (!res.ok) {
+        let txt = `Request failed: ${res.status} ${res.statusText}`;
+        try { const body = await res.text(); if (body) txt += ` - ${body}`; } catch (e) {}
+        document.getElementById('loginMsg').textContent = txt;
+        return;
+      }
+
+      let j = null;
+      try {
+        j = await res.json();
+      } catch (err) {
+        console.warn('Non-JSON response from /api/admin/signups', err);
+        document.getElementById('loginMsg').textContent = 'Unexpected response from server.';
+        return;
+      }
+
+      const tbody = document.getElementById('signupsTbody');
+      tbody.innerHTML = '';
+      (j.signups||[]).forEach(s => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${s.id}</td><td>${s.firstName} ${s.lastName}</td><td>${s.email}</td><td>${s.phone}</td><td>${s.hospital}</td><td>${s.state}</td><td>${s.role}</td><td>${s.created_at}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+  document.getElementById('loginBtn').addEventListener('click', login);
+  document.getElementById('logoutBtn').addEventListener('click', async () => { await fetch(BACKEND_ORIGIN + '/api/admin/logout', { credentials: 'include' }); location.reload(); });
+  </script>
+</body>
+</html>
